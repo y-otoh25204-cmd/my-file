@@ -1,0 +1,1592 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Collage Craft - コラージュパズル</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts (Inter, Yusei Magic for handwriting feel) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Yusei+Magic&family=M+PLUS+Rounded+1c:wght@400;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body {
+            font-family: 'M PLUS Rounded 1c', 'Inter', sans-serif;
+            background: #1e1e24;
+            color: #f4f4f6;
+            overflow-x: hidden;
+        }
+        .handwritten {
+            font-family: 'Yusei Magic', sans-serif;
+        }
+        /* Custom scrollbar for pieces panel */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.4);
+        }
+        /* Craft board wood texture pattern overlay with real frames for visibility */
+        .craft-board-bg {
+            background-color: #f6f3eb;
+            background-image: 
+                linear-gradient(rgba(139, 90, 43, 0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(139, 90, 43, 0.04) 1px, transparent 1px);
+            background-size: 20px 20px;
+            border: 8px solid #e6dcce;
+            box-shadow: inset 0 4px 10px rgba(0,0,0,0.08);
+        }
+        .dark-cyber-bg {
+            background-color: #09070f;
+            background-image: 
+                linear-gradient(rgba(0, 242, 254, 0.08) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 242, 254, 0.08) 1px, transparent 1px);
+            background-size: 25px 25px;
+            border: 8px solid #1c152d;
+            box-shadow: inset 0 4px 15px rgba(0, 242, 254, 0.05);
+        }
+        .garden-bg {
+            background-color: #ecf3e6;
+            background-image: radial-gradient(#b8caa3 3px, transparent 0);
+            background-size: 24px 24px;
+            border: 8px solid #cfdcbe;
+            box-shadow: inset 0 4px 10px rgba(0,0,0,0.05);
+        }
+        /* Rotation and scale ring */
+        .active-element {
+            outline: 2px dashed #3b82f6;
+            outline-offset: 4px;
+        }
+        
+        /* Snap success shine animation */
+        @keyframes snap-success {
+            0% {
+                filter: brightness(1.8) drop-shadow(0 0 15px rgba(165, 180, 252, 0.8));
+                transform: translate(-50%, -50%) scale(1.15) rotate(var(--snap-rotate, 0deg));
+            }
+            100% {
+                filter: brightness(1) drop-shadow(0 10px 15px rgba(0, 0, 0, 0.15));
+                transform: translate(-50%, -50%) scale(1) rotate(var(--snap-rotate, 0deg));
+            }
+        }
+        .snap-anim {
+            animation: snap-success 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between">
+
+    <!-- Top Navigation Bar -->
+    <header class="bg-zinc-900 border-b border-zinc-800 px-6 py-4 flex flex-wrap items-center justify-between gap-4 shadow-lg z-10">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-400 via-rose-500 to-indigo-500 flex items-center justify-center shadow-lg transform rotate-3 hover:rotate-12 transition-transform duration-300">
+                <i class="fa-solid fa-scissors text-white text-xl"></i>
+            </div>
+            <div>
+                <h1 class="text-xl font-bold bg-gradient-to-r from-amber-200 via-rose-300 to-indigo-300 bg-clip-text text-transparent">
+                    Collage Craft
+                </h1>
+                <p class="text-xs text-zinc-400">コラージュパズル ＆ クリエイター</p>
+            </div>
+        </div>
+
+        <!-- Mode Selectors and Game Status -->
+        <div class="flex items-center gap-3">
+            <button id="btn-mode-puzzle" class="px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-300 bg-amber-500 text-zinc-950 shadow-md flex items-center gap-2">
+                <i class="fa-solid fa-puzzle-piece"></i> パズルモード
+            </button>
+            <button id="btn-mode-free" class="px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-300 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white flex items-center gap-2">
+                <i class="fa-solid fa-palette"></i> フリー創作
+            </button>
+            <div class="w-px h-6 bg-zinc-800"></div>
+            <!-- Sound Toggle -->
+            <button id="btn-sound" class="w-10 h-10 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 flex items-center justify-center transition-all" title="音量を切り替え">
+                <i id="sound-icon" class="fa-solid fa-volume-high"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Game Workspace -->
+    <main class="flex-1 w-full max-w-7xl mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+        
+        <!-- Left Column: Controls, Level Selection or Free Items -->
+        <section class="lg:col-span-4 flex flex-col gap-5">
+            <!-- Game Rules/Modes & Level Selection -->
+            <div class="bg-zinc-900/80 border border-zinc-800 rounded-2xl p-5 shadow-xl flex flex-col gap-4">
+                <div class="flex items-center justify-between">
+                    <h2 id="control-panel-title" class="text-lg font-bold text-zinc-200 flex items-center gap-2">
+                        <i class="fa-solid fa-folder-open text-amber-400"></i> コラージュのテーマ
+                    </h2>
+                    <span id="score-badge" class="px-2.5 py-1 text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full flex items-center gap-1">
+                        <i class="fa-solid fa-circle-check"></i> <span id="match-percent">0</span>% 一致
+                    </span>
+                </div>
+
+                <!-- Level selector buttons (Visible in Puzzle Mode) -->
+                <div id="puzzle-level-list" class="flex flex-col gap-2">
+                    <!-- Loaded dynamically via JS -->
+                </div>
+
+                <!-- Free Mode Piece Categories (Visible in Free Mode, Hidden by default) -->
+                <div id="free-piece-categories" class="hidden flex flex-col gap-3">
+                    <p class="text-xs text-zinc-400">クリックしてキャンバスにパーツを追加します：</p>
+                    <div class="grid grid-cols-4 gap-2 mb-2">
+                        <button onclick="changeFreeTab('photos')" class="free-tab-btn py-1.5 px-2 text-xs rounded-lg font-semibold bg-indigo-600 text-white transition-all">写真</button>
+                        <button onclick="changeFreeTab('stamps')" class="free-tab-btn py-1.5 px-2 text-xs rounded-lg font-semibold bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 transition-all">切手</button>
+                        <button onclick="changeFreeTab('decor')" class="free-tab-btn py-1.5 px-2 text-xs rounded-lg font-semibold bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 transition-all">植物・飾</button>
+                        <button onclick="changeFreeTab('tape')" class="free-tab-btn py-1.5 px-2 text-xs rounded-lg font-semibold bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 transition-all">テープ</button>
+                    </div>
+                    <!-- Scrolling items container -->
+                    <div id="free-items-container" class="grid grid-cols-3 gap-2 max-h-[220px] overflow-y-auto pr-1">
+                        <!-- Loaded dynamically depending on tab -->
+                    </div>
+                </div>
+
+                <!-- Help/Tips Box -->
+                <div class="mt-2 bg-zinc-950/40 p-3.5 rounded-xl border border-zinc-800/60 text-xs text-zinc-400 leading-relaxed flex items-start gap-2.5">
+                    <i class="fa-solid fa-circle-info text-amber-400/80 mt-0.5 text-sm"></i>
+                    <div>
+                        <p class="font-semibold text-zinc-300 mb-0.5">操作ガイド:</p>
+                        <p id="guide-text">パーツをドラッグして、背後のお手本シルエットにぴったり重ねましょう！素材の大きさや角度はすでにお手本とピッタリ同じサイズ・向きに揃っていますので、ドラッグして重ねるだけでピタッと吸着して爽快に遊べます！</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Element Transformation Controls -->
+            <div id="transformation-controls" class="bg-zinc-900/80 border border-zinc-800 rounded-2xl p-5 shadow-xl flex flex-col gap-4">
+                <h3 class="text-sm font-bold text-zinc-300 flex items-center gap-2">
+                    <i class="fa-solid fa-sliders text-indigo-400"></i> パーツ操作パネル
+                </h3>
+                
+                <div id="no-selection-placeholder" class="py-6 text-center text-xs text-zinc-500 italic">
+                    パーツを選択すると、回転・サイズ調整・重なり順の変更がここでも行えます（ダブルクリックでも45°回転します）
+                </div>
+
+                <div id="controls-panel" class="hidden flex flex-col gap-4">
+                    <!-- Layering order controls -->
+                    <div>
+                        <span class="text-xs text-zinc-400 block mb-1.5 font-semibold">重なり順 (レイヤー)</span>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button id="ctrl-layer-front" class="py-1.5 px-3 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-lg text-xs font-semibold text-zinc-200 flex items-center justify-center gap-1.5 transition-all">
+                                <i class="fa-solid fa-layer-group"></i> 最前面へ
+                            </button>
+                            <button id="ctrl-layer-back" class="py-1.5 px-3 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-lg text-xs font-semibold text-zinc-200 flex items-center justify-center gap-1.5 transition-all">
+                                <i class="fa-solid fa-layer-group fa-flip-vertical"></i> 最背面へ
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Transform range sliders -->
+                    <div class="space-y-3">
+                        <div>
+                            <div class="flex justify-between text-xs text-zinc-400 mb-1">
+                                <span class="font-semibold">回転度合い</span>
+                                <span id="val-rotate">0°</span>
+                            </div>
+                            <input id="slider-rotate" type="range" min="0" max="360" value="0" class="w-full accent-indigo-500 bg-zinc-950 h-1.5 rounded-lg cursor-pointer">
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between text-xs text-zinc-400 mb-1">
+                                <span class="font-semibold">サイズ倍率</span>
+                                <span id="val-scale">1.0x</span>
+                            </div>
+                            <input id="slider-scale" type="range" min="0.5" max="2.0" step="0.05" value="1" class="w-full accent-indigo-500 bg-zinc-950 h-1.5 rounded-lg cursor-pointer">
+                        </div>
+                    </div>
+
+                    <!-- Quick flip & Delete Buttons -->
+                    <div class="flex gap-2 pt-2 border-t border-zinc-800/80">
+                        <button id="ctrl-flip" class="flex-1 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all">
+                            <i class="fa-solid fa-arrows-left-right"></i> 左右反転
+                        </button>
+                        <button id="ctrl-delete" class="px-3 bg-red-950/40 hover:bg-red-900/60 border border-red-900/40 text-red-400 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all" title="削除">
+                            <i class="fa-solid fa-trash-can"></i> 削除
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Right Column: Interactive Collage Board (Desk Area) -->
+        <section class="lg:col-span-8 flex flex-col gap-4">
+            <!-- Board Status Ribbon -->
+            <div class="bg-zinc-900/60 border border-zinc-800/80 rounded-xl px-5 py-3 flex flex-wrap items-center justify-between gap-3 text-sm">
+                <div class="flex items-center gap-2 font-semibold">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span id="board-theme-title" class="text-zinc-200">読み込み中...</span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <!-- Target Preview Toggle in Puzzle Mode -->
+                    <button id="btn-toggle-outline" class="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all">
+                        <i class="fa-regular fa-eye-slash"></i> <span>ガイドを隠す</span>
+                    </button>
+                    <!-- Reset Board -->
+                    <button id="btn-reset-board" class="px-3 py-1.5 bg-zinc-800 hover:bg-red-950/40 hover:border-red-900/40 hover:text-red-400 border border-transparent text-zinc-300 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all">
+                        <i class="fa-solid fa-rotate-left"></i> 最初から
+                    </button>
+                </div>
+            </div>
+
+            <!-- The Desk & Main Canvas Wrapper -->
+            <div class="relative flex-1 bg-zinc-950 rounded-2xl border border-zinc-800 shadow-inner flex items-center justify-center p-4 md:p-8 min-h-[480px] lg:min-h-[580px] overflow-hidden select-none">
+                <!-- Decorative Wood Desk Grain Background effect -->
+                <div class="absolute inset-0 opacity-10 pointer-events-none bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:16px_16px]"></div>
+                
+                <!-- Main Canvas Board where items are placed -->
+                <div id="collage-canvas" class="relative w-full max-w-[500px] aspect-square rounded-xl shadow-2xl overflow-hidden craft-board-bg transition-colors duration-500">
+                    
+                    <!-- Ghost Silhouettes of target positions for Puzzle Mode -->
+                    <div id="ghost-layer" class="absolute inset-0 pointer-events-none z-0 opacity-80 transition-opacity duration-300">
+                        <!-- Placed elements silhouettes rendered dynamically -->
+                    </div>
+
+                    <!-- Active Collage Pieces Container -->
+                    <div id="pieces-layer" class="absolute inset-0 z-10">
+                        <!-- Interactive pieces will be rendered here dynamically -->
+                    </div>
+
+                    <!-- Selection Ring / Box Overlay (Follows active piece) -->
+                    <div id="selection-box" class="absolute pointer-events-none border-2 border-dashed border-indigo-500 hidden z-20">
+                        <!-- Custom Resizer & Rotator Controls visible directly on elements on canvas -->
+                    </div>
+                </div>
+
+                <!-- Big Level Completed Screen Overlay -->
+                <div id="clear-overlay" class="absolute inset-0 bg-zinc-950/80 backdrop-blur-md flex flex-col items-center justify-center gap-4 opacity-0 pointer-events-none transition-all duration-500 z-30">
+                    <div class="text-center p-8 bg-zinc-900 border border-zinc-800 rounded-3xl shadow-2xl max-w-sm mx-4 transform scale-90 transition-transform duration-500" id="clear-card">
+                        <div class="w-16 h-16 mx-auto bg-gradient-to-tr from-amber-400 to-rose-500 rounded-2xl flex items-center justify-center shadow-lg text-white text-3xl mb-4 animate-bounce">
+                            🎉
+                        </div>
+                        <h2 class="text-2xl font-black text-white mb-2 handwritten">素晴らしい！</h2>
+                        <p class="text-zinc-400 text-sm mb-6">すべてのコラージュパーツが完璧な位置に配置されました！芸術的なセンス抜群です！</p>
+                        
+                        <div class="space-y-3">
+                            <button id="btn-next-level" class="w-full py-3 bg-amber-500 text-zinc-950 rounded-xl font-bold shadow-lg hover:bg-amber-400 active:scale-95 transition-all">
+                                次のコラージュに挑む <i class="fa-solid fa-arrow-right ml-1"></i>
+                            </button>
+                            <button onclick="switchMode('free')" class="w-full py-2.5 bg-zinc-800 text-zinc-300 rounded-xl font-semibold hover:bg-zinc-700 transition-all text-xs">
+                                このままフリー創作モードへ
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Background Canvas particles overlay for confetti -->
+                <canvas id="confetti-canvas" class="absolute inset-0 pointer-events-none z-40 hidden"></canvas>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-zinc-950 py-4 px-6 border-t border-zinc-900/80 text-center text-xs text-zinc-500 flex flex-wrap justify-between items-center gap-2 max-w-7xl mx-auto w-full">
+        <div>&copy; 2026 Collage Craft. 貼って、回して、創り出そう。</div>
+        <div class="flex gap-4">
+            <span class="hover:text-zinc-400 cursor-help"><i class="fa-solid fa-keyboard"></i> 矢印キーで微調整 / ダブルクリックで回転</span>
+        </div>
+    </footer>
+
+    <script>
+        /* SOUND ENGINE using Web Audio API (No external file dependencies!) */
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.muted = false;
+            }
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            }
+            playGrab() {
+                if (this.muted) return;
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(150, this.ctx.currentTime + 0.08);
+                
+                gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.08);
+                
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.08);
+            }
+            playSnap() {
+                if (this.muted) return;
+                this.init();
+                // Play metallic organic snap sound
+                const osc1 = this.ctx.createOscillator();
+                const osc2 = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                
+                osc1.connect(gain);
+                osc2.connect(gain);
+                gain.connect(this.ctx.destination);
+                
+                osc1.frequency.setValueAtTime(800, this.ctx.currentTime);
+                osc1.frequency.exponentialRampToValueAtTime(400, this.ctx.currentTime + 0.12);
+                
+                osc2.frequency.setValueAtTime(1200, this.ctx.currentTime);
+                osc2.frequency.exponentialRampToValueAtTime(200, this.ctx.currentTime + 0.15);
+                
+                gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+                
+                osc1.start();
+                osc2.start();
+                osc1.stop(this.ctx.currentTime + 0.15);
+                osc2.stop(this.ctx.currentTime + 0.15);
+            }
+            playFanfare() {
+                if (this.muted) return;
+                this.init();
+                // Play warm celebratory chime
+                const now = this.ctx.currentTime;
+                const notes = [261.63, 329.63, 392.00, 523.25]; // C4, E4, G4, C5
+                
+                notes.forEach((freq, i) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, now + i * 0.12);
+                    
+                    gain.gain.setValueAtTime(0, now + i * 0.12);
+                    gain.gain.linearRampToValueAtTime(0.2, now + i * 0.12 + 0.05);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.12 + 0.6);
+                    
+                    osc.start(now + i * 0.12);
+                    osc.stop(now + i * 0.12 + 0.6);
+                });
+            }
+        }
+        
+        const sfx = new SoundEngine();
+
+        /* Collage themes databases with pre-designed elements styling and default target positions */
+        const THEMES = [
+            {
+                id: "vintage-cafe",
+                name: "喫茶店の思い出",
+                description: "少し温かみのあるセピア調のビジュアルと切手。穏やかな時間を想起させるアンティークな組み合わせです。",
+                bgClass: "craft-board-bg",
+                elements: [
+                    {
+                        id: "cafe-photo",
+                        type: "polaroid",
+                        emoji: "☕",
+                        caption: "Retro Cafe",
+                        scale: 1.1,
+                        rotate: 12,
+                        x: 35, // Percentage of board width
+                        y: 32,
+                        targetX: 35,
+                        targetY: 32,
+                        targetRotate: 12,
+                        targetScale: 1.1,
+                        color: "bg-amber-50"
+                    },
+                    {
+                        id: "rose-stamp",
+                        type: "stamp",
+                        emoji: "🌹",
+                        scale: 0.9,
+                        rotate: -15,
+                        x: 75,
+                        y: 20,
+                        targetX: 75,
+                        targetY: 20,
+                        targetRotate: -15,
+                        targetScale: 0.9,
+                        color: "bg-red-50"
+                    },
+                    {
+                        id: "dry-flower",
+                        type: "sticker",
+                        emoji: "🌾",
+                        scale: 1.3,
+                        rotate: 45,
+                        x: 22,
+                        y: 72,
+                        targetX: 22,
+                        targetY: 72,
+                        targetRotate: 45,
+                        targetScale: 1.3
+                    },
+                    {
+                        id: "vintage-key",
+                        type: "sticker",
+                        emoji: "🔑",
+                        scale: 1.0,
+                        rotate: 135,
+                        x: 75,
+                        y: 75,
+                        targetX: 75,
+                        targetY: 75,
+                        targetRotate: 135,
+                        targetScale: 1.0
+                    },
+                    {
+                        id: "coffee-tape",
+                        type: "tape",
+                        emoji: "",
+                        scale: 1.2,
+                        rotate: -25,
+                        x: 35,
+                        y: 10,
+                        targetX: 35,
+                        targetY: 10,
+                        targetRotate: -25,
+                        targetScale: 1.2,
+                        width: 110,
+                        height: 25,
+                        color: "bg-amber-900/20"
+                    }
+                ]
+            },
+            {
+                id: "cyber-tokyo",
+                name: "ネオ・トーキョー",
+                description: "サイバーパンクな東京。怪しく輝くネオンと、失われた未来のノスタルジー漂うデジタルコラージュ。",
+                bgClass: "dark-cyber-bg",
+                elements: [
+                    {
+                        id: "neon-game",
+                        type: "polaroid",
+                        emoji: "🎮",
+                        caption: "NEO-8BIT",
+                        scale: 1.1,
+                        rotate: -8,
+                        x: 30,
+                        y: 35,
+                        targetX: 30,
+                        targetY: 35,
+                        targetRotate: -8,
+                        targetScale: 1.1,
+                        color: "bg-zinc-900 border-indigo-500/50 text-indigo-200"
+                    },
+                    {
+                        id: "neon-heart",
+                        type: "sticker",
+                        emoji: "💖",
+                        scale: 1.4,
+                        rotate: 15,
+                        x: 75,
+                        y: 25,
+                        targetX: 75,
+                        targetY: 25,
+                        targetRotate: 15,
+                        targetScale: 1.4
+                    },
+                    {
+                        id: "ramen-sticker",
+                        type: "sticker",
+                        emoji: "🍜",
+                        scale: 1.0,
+                        rotate: 0,
+                        x: 52,
+                        y: 70,
+                        targetX: 52,
+                        targetY: 70,
+                        targetRotate: 0,
+                        targetScale: 1.0
+                    },
+                    {
+                        id: "holo-butterfly",
+                        type: "sticker",
+                        emoji: "🦋",
+                        scale: 1.1,
+                        rotate: -30,
+                        x: 18,
+                        y: 72,
+                        targetX: 18,
+                        targetY: 72,
+                        targetRotate: -30,
+                        targetScale: 1.1
+                    },
+                    {
+                        id: "cyber-tape",
+                        type: "tape",
+                        emoji: "",
+                        scale: 1.3,
+                        rotate: 35,
+                        x: 22,
+                        y: 12,
+                        targetX: 22,
+                        targetY: 12,
+                        targetRotate: 35,
+                        targetScale: 1.3,
+                        width: 120,
+                        height: 22,
+                        color: "bg-cyan-500/30"
+                    }
+                ]
+            },
+            {
+                id: "secret-garden",
+                name: "秘密の花園",
+                description: "生い茂る神秘的な森 of 植物、魔術的なクリスタル、夜の調べを感じるエレガントなファンタジーコラージュ。",
+                bgClass: "garden-bg",
+                elements: [
+                    {
+                        id: "crystal-polaroid",
+                        type: "polaroid",
+                        emoji: "🔮",
+                        caption: "Mystic",
+                        scale: 1.1,
+                        rotate: 5,
+                        x: 50,
+                        y: 45,
+                        targetX: 50,
+                        targetY: 45,
+                        targetRotate: 5,
+                        targetScale: 1.1,
+                        color: "bg-teal-50"
+                    },
+                    {
+                        id: "fern-leaf",
+                        type: "sticker",
+                        emoji: "🌿",
+                        scale: 1.5,
+                        rotate: -45,
+                        x: 20,
+                        y: 25,
+                        targetX: 20,
+                        targetY: 25,
+                        targetRotate: -45,
+                        targetScale: 1.5
+                    },
+                    {
+                        id: "magic-mushroom",
+                        type: "sticker",
+                        emoji: "🍄",
+                        scale: 1.2,
+                        rotate: 15,
+                        x: 22,
+                        y: 75,
+                        targetX: 22,
+                        targetY: 75,
+                        targetRotate: 15,
+                        targetScale: 1.2
+                    },
+                    {
+                        id: "moon-charm",
+                        type: "sticker",
+                        emoji: "🌙",
+                        scale: 1.0,
+                        rotate: -20,
+                        x: 78,
+                        y: 22,
+                        targetX: 78,
+                        targetY: 22,
+                        targetRotate: -20,
+                        targetScale: 1.0
+                    },
+                    {
+                        id: "gold-key",
+                        type: "sticker",
+                        emoji: "🗝️",
+                        scale: 1.3,
+                        rotate: 60,
+                        x: 78,
+                        y: 75,
+                        targetX: 78,
+                        targetY: 75,
+                        targetRotate: 60,
+                        targetScale: 1.3
+                    }
+                ]
+            }
+        ];
+
+        /* FREE MODE ASSETS PRESETS */
+        const FREE_ASSETS = {
+            photos: [
+                { emoji: "🐈", caption: "Sweet Cat" },
+                { emoji: "🏔️", caption: "Adventure" },
+                { emoji: "🧁", caption: "Tea Time" },
+                { emoji: "📸", caption: "Polaroid" },
+                { emoji: "🛸", caption: "Believe" },
+                { emoji: "🗼", caption: "Tokyo" },
+            ],
+            stamps: [
+                { emoji: "📮", text: "STAMP" },
+                { emoji: "🕊️", text: "AIR MAIL" },
+                { emoji: "🗼", text: "JAPAN" },
+                { emoji: "💮", text: "PASS" },
+                { emoji: "🌎", text: "GLOBAL" },
+                { emoji: "☕", text: "CAFE" },
+            ],
+            decor: [
+                { emoji: "🌻" }, { emoji: "🍁" }, { emoji: "🍀" }, { emoji: "🌟" }, 
+                { emoji: "💎" }, { emoji: "🧸" }, { emoji: "🎀" }, { emoji: "🎵" },
+                { emoji: "🍿" }, { emoji: "🎈" }
+            ],
+            tape: [
+                { color: "bg-amber-500/30" },
+                { color: "bg-rose-500/30" },
+                { color: "bg-cyan-500/30" },
+                { color: "bg-emerald-500/30" },
+                { color: "bg-purple-500/30" },
+                { color: "bg-zinc-300/40" }
+            ]
+        };
+
+        /* GAME STATE */
+        let currentMode = "puzzle"; // 'puzzle' or 'free'
+        let selectedThemeIndex = 0;
+        let activeElements = []; // Placed elements state
+        let selectedElementId = null;
+        let isDragging = false;
+        let activeTab = "photos";
+        let showGuides = true;
+
+        /* Pointer Interaction Physics */
+        let dragOffset = { x: 0, y: 0 };
+
+        /* DOM Reference Cache */
+        const canvas = document.getElementById("collage-canvas");
+        const ghostLayer = document.getElementById("ghost-layer");
+        const piecesLayer = document.getElementById("pieces-layer");
+        const selectionBox = document.getElementById("selection-box");
+        const btnPuzzle = document.getElementById("btn-mode-puzzle");
+        const btnFree = document.getElementById("btn-mode-free");
+        const levelList = document.getElementById("puzzle-level-list");
+        const freeCategories = document.getElementById("free-piece-categories");
+        const freeItemsContainer = document.getElementById("free-items-container");
+        const controlPanelTitle = document.getElementById("control-panel-title");
+        const themeTitle = document.getElementById("board-theme-title");
+        const guideText = document.getElementById("guide-text");
+        const soundIcon = document.getElementById("sound-icon");
+        const btnSound = document.getElementById("btn-sound");
+        const matchPercentSpan = document.getElementById("match-percent");
+        const btnToggleOutline = document.getElementById("btn-toggle-outline");
+        const btnResetBoard = document.getElementById("btn-reset-board");
+        
+        // Element controllers panel
+        const placeholderControls = document.getElementById("no-selection-placeholder");
+        const mainControlsPanel = document.getElementById("controls-panel");
+        const sliderRotate = document.getElementById("slider-rotate");
+        const sliderScale = document.getElementById("slider-scale");
+        const valRotate = document.getElementById("val-rotate");
+        const valScale = document.getElementById("val-scale");
+        const ctrlLayerFront = document.getElementById("ctrl-layer-front");
+        const ctrlLayerBack = document.getElementById("ctrl-layer-back");
+        const ctrlFlip = document.getElementById("ctrl-flip");
+        const ctrlDelete = document.getElementById("ctrl-delete");
+
+        // Clear Screens
+        const clearOverlay = document.getElementById("clear-overlay");
+        const clearCard = document.getElementById("clear-card");
+        const btnNextLevel = document.getElementById("btn-next-level");
+        const confettiCanvas = document.getElementById("confetti-canvas");
+
+        /* INITIALIZATION */
+        window.onload = () => {
+            initGame();
+        };
+
+        function initGame() {
+            renderLevelSelection();
+            loadTheme(0);
+            setupEventHandlers();
+            setupSoundToggle();
+        }
+
+        /* Set up event listeners */
+        function setupEventHandlers() {
+            btnPuzzle.addEventListener("click", () => switchMode("puzzle"));
+            btnFree.addEventListener("click", () => switchMode("free"));
+            
+            // Transform control sliders
+            sliderRotate.addEventListener("input", (e) => {
+                if (!selectedElementId) return;
+                const deg = parseInt(e.target.value);
+                updateSelectedElementTransform({ rotate: deg });
+                valRotate.textContent = `${deg}°`;
+            });
+
+            sliderScale.addEventListener("input", (e) => {
+                if (!selectedElementId) return;
+                const scale = parseFloat(e.target.value);
+                updateSelectedElementTransform({ scale: scale });
+                valScale.textContent = `${scale.toFixed(2)}x`;
+            });
+
+            // Layer arrangement buttons
+            ctrlLayerFront.addEventListener("click", () => {
+                if (!selectedElementId) return;
+                const idx = activeElements.findIndex(el => el.id === selectedElementId);
+                if (idx === -1) return;
+                const maxZ = activeElements.reduce((max, el) => Math.max(max, el.zIndex || 0), 0);
+                activeElements[idx].zIndex = maxZ + 1;
+                renderPieces();
+                sfx.playGrab();
+            });
+
+            ctrlLayerBack.addEventListener("click", () => {
+                if (!selectedElementId) return;
+                const idx = activeElements.findIndex(el => el.id === selectedElementId);
+                if (idx === -1) return;
+                const minZ = activeElements.reduce((min, el) => Math.min(min, el.zIndex || 0), 0);
+                activeElements[idx].zIndex = Math.max(0, minZ - 1);
+                renderPieces();
+                sfx.playGrab();
+            });
+
+            ctrlFlip.addEventListener("click", () => {
+                if (!selectedElementId) return;
+                const idx = activeElements.findIndex(el => el.id === selectedElementId);
+                if (idx === -1) return;
+                activeElements[idx].flipped = !activeElements[idx].flipped;
+                renderPieces();
+                sfx.playGrab();
+            });
+
+            ctrlDelete.addEventListener("click", () => {
+                if (!selectedElementId) return;
+                activeElements = activeElements.filter(el => el.id !== selectedElementId);
+                deselectAll();
+                renderPieces();
+                checkPuzzleStatus();
+                sfx.playGrab();
+            });
+
+            btnToggleOutline.addEventListener("click", toggleGuides);
+            btnResetBoard.addEventListener("click", resetCurrentBoard);
+            btnNextLevel.addEventListener("click", loadNextLevel);
+
+            // Canvas level mouse deselect
+            canvas.addEventListener("pointerdown", (e) => {
+                if (e.target === canvas || e.target === piecesLayer) {
+                    deselectAll();
+                }
+            });
+
+            // Global key listeners for fine tuning layout
+            document.addEventListener("keydown", handleKeyboardFineTune);
+        }
+
+        /* SOUND TOGGLE */
+        function setupSoundToggle() {
+            btnSound.addEventListener("click", () => {
+                sfx.muted = !sfx.muted;
+                if (sfx.muted) {
+                    soundIcon.className = "fa-solid fa-volume-xmark text-red-400";
+                } else {
+                    sfx.init();
+                    soundIcon.className = "fa-solid fa-volume-high text-indigo-400";
+                    sfx.playSnap();
+                }
+            });
+        }
+
+        /* SWITCH WORKSPACE MODES */
+        function switchMode(mode) {
+            currentMode = mode;
+            deselectAll();
+            
+            if (mode === "puzzle") {
+                btnPuzzle.className = "px-4 py-2 rounded-lg text-sm font-semibold bg-amber-500 text-zinc-950 shadow-md flex items-center gap-2 transition-all";
+                btnFree.className = "px-4 py-2 rounded-lg text-sm font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white flex items-center gap-2 transition-all";
+                
+                levelList.classList.remove("hidden");
+                freeCategories.classList.add("hidden");
+                controlPanelTitle.innerHTML = `<i class="fa-solid fa-folder-open text-amber-400"></i> コラージュのテーマ`;
+                guideText.innerText = "パーツをドラッグして、背後のお手本シルエットにぴったり重ねましょう！素材の大きさや角度はすでにお手本とピッタリ同じサイズ・向きに揃っていますので、ドラッグして重ねるだけでピタッと吸着して爽快に遊べます！";
+                btnToggleOutline.classList.remove("hidden");
+                
+                loadTheme(selectedThemeIndex);
+            } else {
+                btnFree.className = "px-4 py-2 rounded-lg text-sm font-semibold bg-indigo-600 text-white shadow-md flex items-center gap-2 transition-all";
+                btnPuzzle.className = "px-4 py-2 rounded-lg text-sm font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white flex items-center gap-2 transition-all";
+                
+                levelList.classList.add("hidden");
+                freeCategories.classList.remove("hidden");
+                controlPanelTitle.innerHTML = `<i class="fa-solid fa-palette text-indigo-400"></i> 素材パレット`;
+                guideText.innerText = "自由にパーツを追加して、自分だけの美しいコラージュ作品を創作しましょう！最前面や最背面への配置や拡大縮小、回転も自由です。（ダブルクリックで素早く回転できます）";
+                
+                // Hide match rate in free mode
+                document.getElementById("score-badge").style.opacity = "0";
+                btnToggleOutline.classList.add("hidden");
+                themeTitle.innerText = "✨ フリールーム (創作コラージュ)";
+                
+                changeFreeTab("photos");
+                // Clear any target ghosts
+                ghostLayer.innerHTML = "";
+            }
+        }
+
+        /* LOAD A LEVEL / THEME */
+        function loadTheme(idx) {
+            selectedThemeIndex = idx;
+            const theme = THEMES[idx];
+            if (!theme) return;
+
+            themeTitle.innerText = `🖼️ テーマ: ${theme.name}`;
+            document.getElementById("score-badge").style.opacity = "1";
+
+            // Update board styling
+            canvas.className = `relative w-full max-w-[500px] aspect-square rounded-xl shadow-2xl overflow-hidden transition-colors duration-500 ${theme.bgClass}`;
+
+            // Initialize active elements scattered randomly for the puzzle mode
+            activeElements = theme.elements.map((el, i) => {
+                // 【修正】素材の大きさ（scale）に加えて、角度（rotate）もお手本（目標値）と完全に一致させます
+                const alignedScale = el.targetScale;
+                const alignedRotate = el.targetRotate;
+
+                // Random position away from center
+                const randomX = 15 + Math.random() * 70;
+                const randomY = 15 + Math.random() * 70;
+
+                return {
+                    ...el,
+                    // Active current state
+                    x: randomX,
+                    y: randomY,
+                    rotate: alignedRotate, // 最初からお手本とぴったり同じ角度
+                    scale: alignedScale,   // 最初からお手本とぴったり同じサイズ
+                    zIndex: i + 1,
+                    flipped: false
+                };
+            });
+
+            // Render Guides/Ghosts
+            renderGhosts();
+
+            // Render interactive pieces
+            renderPieces();
+
+            // Deselect any leftovers
+            deselectAll();
+
+            // Re-render level selection buttons for active status highlights
+            renderLevelSelection();
+
+            // Calculate current match status
+            checkPuzzleStatus();
+        }
+
+        /* RESET CURRENT BOARD */
+        function resetCurrentBoard() {
+            if (currentMode === "puzzle") {
+                loadTheme(selectedThemeIndex);
+            } else {
+                activeElements = [];
+                deselectAll();
+                renderPieces();
+            }
+            sfx.playGrab();
+        }
+
+        /* LOAD NEXT LEVEL */
+        function loadNextLevel() {
+            clearOverlay.classList.remove("opacity-100");
+            clearOverlay.classList.add("opacity-0", "pointer-events-none");
+            clearCard.classList.add("scale-90");
+
+            const nextIdx = (selectedThemeIndex + 1) % THEMES.length;
+            loadTheme(nextIdx);
+        }
+
+        /* RENDER GHOST LEVEL OUTLINES (GUIDES) */
+        function renderGhosts() {
+            if (!showGuides || currentMode !== "puzzle") {
+                ghostLayer.innerHTML = "";
+                return;
+            }
+
+            const theme = THEMES[selectedThemeIndex];
+            ghostLayer.innerHTML = theme.elements.map(el => {
+                // すでにぴったり配置（スナップ）されているパーツは、背後のお手本（ゴースト下絵）を非表示にする
+                const activeEl = activeElements.find(ae => ae.id === el.id);
+                const isSnapped = activeEl && 
+                                  activeEl.x === el.targetX && 
+                                  activeEl.y === el.targetY && 
+                                  activeEl.rotate === el.targetRotate && 
+                                  activeEl.scale === el.targetScale;
+                
+                // 一致スナップ済みのものはシルエットを描画せず、素材自体と同化させます
+                if (isSnapped) return "";
+                
+                // Build outline style HTML
+                return renderElementHTML(el, true);
+            }).join("");
+        }
+
+        /* RENDER LEVEL SELECTION LIST */
+        function renderLevelSelection() {
+            levelList.innerHTML = THEMES.map((theme, i) => {
+                const isActive = (i === selectedThemeIndex && currentMode === 'puzzle');
+                return `
+                    <button onclick="loadTheme(${i})" class="w-full text-left p-3 rounded-xl border transition-all flex items-center justify-between ${
+                        isActive 
+                        ? 'bg-amber-500/10 border-amber-500/30 text-amber-200' 
+                        : 'bg-zinc-950/40 border-zinc-800/40 text-zinc-400 hover:bg-zinc-800/40 hover:text-zinc-200'
+                    }">
+                        <div class="flex flex-col gap-0.5">
+                            <span class="text-xs text-amber-500/80 font-bold uppercase tracking-wider">Level ${i+1}</span>
+                            <span class="text-sm font-semibold">${theme.name}</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-right text-xs ${isActive ? 'text-amber-400' : 'text-zinc-600'}"></i>
+                    </button>
+                `;
+            }).join("");
+        }
+
+        /* UNIVERSAL ELEMENT HTML GENERATOR */
+        function renderElementHTML(el, isGhost = false) {
+            const rot = isGhost ? el.targetRotate : el.rotate;
+            const sc = isGhost ? el.targetScale : el.scale;
+            const posX = isGhost ? el.targetX : el.x;
+            const posY = isGhost ? el.targetY : el.y;
+            const z = isGhost ? 0 : (el.zIndex || 1);
+            const flipClass = el.flipped ? "transform -scale-x-100" : "";
+
+            // Adjust opacity and apply subtle styling filters for target guides to be clearer yet distinctive from real pieces
+            const outlineStyle = isGhost 
+                ? "opacity-50 filter grayscale(50%) contrast(85%) border-2 border-dashed border-indigo-400/50 pointer-events-none" 
+                : "shadow-xl border border-zinc-900/10 hover:shadow-2xl active:cursor-grabbing cursor-grab";
+            
+            let innerContent = "";
+
+            if (el.type === "polaroid") {
+                const themeBg = el.color || "bg-white text-zinc-800";
+                innerContent = `
+                    <div class="p-2.5 pb-6 ${themeBg} rounded-sm shadow-md flex flex-col items-center gap-1.5 w-[110px] aspect-[4/5]">
+                        <div class="w-full flex-1 bg-zinc-950/10 rounded flex items-center justify-center text-4xl select-none ${flipClass}">
+                            ${el.emoji}
+                        </div>
+                        <div class="handwritten text-[10px] font-bold text-center truncate w-full ${isGhost ? 'opacity-50' : ''}">
+                            ${el.caption || 'Memory'}
+                        </div>
+                    </div>
+                `;
+            } else if (el.type === "stamp") {
+                const themeBg = el.color || "bg-rose-50";
+                innerContent = `
+                    <div class="relative p-2.5 ${themeBg} text-rose-950 rounded border-2 border-dashed border-rose-900/30 flex flex-col items-center justify-center w-[75px] aspect-square">
+                        <div class="text-2xl mb-1 ${flipClass}">${el.emoji}</div>
+                        <span class="text-[7px] tracking-wider font-extrabold text-rose-900/60 uppercase">POSTAGE</span>
+                    </div>
+                `;
+            } else if (el.type === "tape") {
+                const themeBg = el.color || "bg-yellow-500/20";
+                innerContent = `
+                    <div class="${themeBg} backdrop-blur-[1px] border border-white/10" style="width: ${el.width || 100}px; height: ${el.height || 22}px;"></div>
+                `;
+            } else { // Generic Sticker
+                innerContent = `
+                    <div class="text-5xl p-2 select-none filter drop-shadow-[0_4px_6px_rgba(0,0,0,0.3)] ${flipClass}">
+                        ${el.emoji}
+                    </div>
+                `;
+            }
+
+            const elementIdAttr = isGhost ? "" : `data-id="${el.id}"`;
+            const pointerClass = isGhost ? "pointer-events-none" : "piece-item";
+
+            return `
+                <div ${elementIdAttr} class="absolute ${pointerClass} ${outlineStyle} transition-shadow duration-300" style="
+                    left: ${posX}%;
+                    top: ${posY}%;
+                    transform: translate(-50%, -50%) rotate(${rot}deg) scale(${sc});
+                    z-index: ${z};
+                    --snap-rotate: ${rot}deg;
+                ">
+                    ${innerContent}
+                </div>
+            `;
+        }
+
+        /* RENDER INTERACTIVE PIECES ON CANVAS */
+        function renderPieces() {
+            piecesLayer.innerHTML = activeElements.map(el => renderElementHTML(el, false)).join("");
+            
+            // Re-attach listeners to newly generated elements
+            document.querySelectorAll(".piece-item").forEach(item => {
+                item.addEventListener("pointerdown", onPiecePointerDown);
+                item.addEventListener("dblclick", onPieceDblClick); // Double-click rotation listener
+            });
+
+            // Adjust selection bounding box position
+            updateSelectionBox();
+        }
+
+        /* PIECE DOUBLE-CLICK ROTATE (45 DEGREE STEPS) */
+        function onPieceDblClick(e) {
+            e.preventDefault();
+            const id = e.currentTarget.getAttribute("data-id");
+            const el = activeElements.find(p => p.id === id);
+            if (!el) return;
+
+            // Increment rotation by 45 degrees, wrapping at 360
+            el.rotate = (el.rotate + 45) % 360;
+
+            // Instantly apply visual transformation
+            const domEl = e.currentTarget;
+            domEl.style.transform = `translate(-50%, -50%) rotate(${el.rotate}deg) scale(${el.scale})`;
+
+            // Synchronize selection state and control sliders
+            selectElement(id);
+            
+            // Check snap mechanics immediately
+            if (currentMode === "puzzle") {
+                const distToTarget = Math.hypot(el.x - el.targetX, el.y - el.targetY);
+                const rotDiff = Math.abs((el.rotate % 360) - (el.targetRotate % 360));
+                const rotSnap = rotDiff < 15 || rotDiff > 345;
+                const scaleDiff = Math.abs(el.scale - el.targetScale);
+
+                if (distToTarget < 3.5 && rotSnap && scaleDiff < 0.15) {
+                    el.x = el.targetX;
+                    el.y = el.targetY;
+                    el.rotate = el.targetRotate;
+                    el.scale = el.targetScale;
+                    
+                    sfx.playSnap();
+                    
+                    // スナップ成功時はパーツ側を再描画し、ゴーストも即時に隠す
+                    renderPieces();
+                    renderGhosts();
+                    
+                    // キラリと光る＆収縮フィットするスナップエフェクトを即座に付与
+                    const snappedDom = document.querySelector(`.piece-item[data-id="${id}"]`);
+                    if (snappedDom) {
+                        snappedDom.classList.add("snap-anim");
+                        setTimeout(() => snappedDom.classList.remove("snap-anim"), 500);
+                    }
+                    
+                    deselectAll();
+                }
+            }
+
+            sfx.playSnap();
+            updateSelectionBox();
+            checkPuzzleStatus();
+        }
+
+        /* PIECE POINTER DOWN (MOUSE & TOUCH INTEGRATED) */
+        function onPiecePointerDown(e) {
+            e.preventDefault();
+            const id = e.currentTarget.getAttribute("data-id");
+            selectElement(id);
+
+            const el = activeElements.find(p => p.id === id);
+            if (!el) return;
+
+            sfx.playGrab();
+
+            isDragging = true;
+            
+            const rect = canvas.getBoundingClientRect();
+            // Calculate starting offsets based on percentages
+            const cursorX = ((e.clientX - rect.left) / rect.width) * 100;
+            const cursorY = ((e.clientY - rect.top) / rect.height) * 100;
+
+            dragOffset = {
+                x: cursorX - el.x,
+                y: cursorY - el.y
+            };
+
+            // Capture initial scaling & rotation values relative to touch distance/angle if using multi-touch
+            // For mouse, we listen for movement to update the dragging position
+            window.addEventListener("pointermove", onPiecePointerMove);
+            window.addEventListener("pointerup", onPiecePointerUp);
+        }
+
+        /* PIECE POINTER DRAG MOVING */
+        function onPiecePointerMove(e) {
+            if (!isDragging || !selectedElementId) return;
+
+            const el = activeElements.find(p => p.id === selectedElementId);
+            if (!el) return;
+
+            const rect = canvas.getBoundingClientRect();
+            // Translate client mouse pixel position to grid percentages
+            let targetX = ((e.clientX - rect.left) / rect.width) * 100;
+            let targetY = ((e.clientY - rect.top) / rect.height) * 100;
+
+            // Constrain positions to canvas bounds with slightly generous overflow allowances
+            targetX = Math.max(-10, Math.min(110, targetX - dragOffset.x));
+            targetY = Math.max(-10, Math.min(110, targetY - dragOffset.y));
+
+            el.x = parseFloat(targetX.toFixed(1));
+            el.y = parseFloat(targetY.toFixed(1));
+
+            // Snap Mechanics in Puzzle Mode
+            if (currentMode === "puzzle") {
+                const distToTarget = Math.hypot(el.x - el.targetX, el.y - el.targetY);
+                const rotDiff = Math.abs((el.rotate % 360) - (el.targetRotate % 360));
+                const rotSnap = rotDiff < 15 || rotDiff > 345;
+                const scaleDiff = Math.abs(el.scale - el.targetScale);
+
+                // If close enough in positioning, rotation and scale: SNAP!
+                if (distToTarget < 3.5 && rotSnap && scaleDiff < 0.15) {
+                    el.x = el.targetX;
+                    el.y = el.targetY;
+                    el.rotate = el.targetRotate;
+                    el.scale = el.targetScale;
+                    sfx.playSnap();
+                    isDragging = false; // Release drag on snap
+                    
+                    // スナップ時にゴースト（背後お手本）を消去し、パーツレイヤーを更新
+                    renderPieces();
+                    renderGhosts();
+                    
+                    // スナップしたアイテムにアニメーションエフェクトをかける
+                    const snappedDom = document.querySelector(`.piece-item[data-id="${selectedElementId}"]`);
+                    if (snappedDom) {
+                        snappedDom.classList.add("snap-anim");
+                        setTimeout(() => snappedDom.classList.remove("snap-anim"), 500);
+                    }
+                    
+                    deselectAll();
+                }
+            }
+
+            // Update DOM element placement directly for fast real-time performance
+            const domEl = document.querySelector(`.piece-item[data-id="${selectedElementId}"]`);
+            if (domEl) {
+                domEl.style.left = `${el.x}%`;
+                domEl.style.top = `${el.y}%`;
+                domEl.style.transform = `translate(-50%, -50%) rotate(${el.rotate}deg) scale(${el.scale})`;
+            }
+
+            updateSelectionBox();
+            checkPuzzleStatus();
+        }
+
+        /* PIECE POINTER RELEASE */
+        function onPiecePointerUp() {
+            isDragging = false;
+            window.removeEventListener("pointermove", onPiecePointerMove);
+            window.removeEventListener("pointerup", onPiecePointerUp);
+            checkPuzzleStatus();
+        }
+
+        /* SELECT AN ELEMENT */
+        function selectElement(id) {
+            selectedElementId = id;
+            const el = activeElements.find(p => p.id === id);
+            
+            // Remove previous active outline effects
+            document.querySelectorAll(".piece-item").forEach(item => {
+                item.classList.remove("active-element");
+            });
+
+            if (el) {
+                // Highlight active element with border style
+                const domEl = document.querySelector(`.piece-item[data-id="${id}"]`);
+                if (domEl) domEl.classList.add("active-element");
+
+                // Sync controls panel sliders
+                sliderRotate.value = el.rotate;
+                valRotate.textContent = `${el.rotate}°`;
+                
+                sliderScale.value = el.scale;
+                valScale.textContent = `${el.scale.toFixed(2)}x`;
+
+                placeholderControls.classList.add("hidden");
+                mainControlsPanel.classList.remove("hidden");
+            } else {
+                deselectAll();
+            }
+            updateSelectionBox();
+        }
+
+        /* DESELECT ALL PIECES */
+        function deselectAll() {
+            selectedElementId = null;
+            document.querySelectorAll(".piece-item").forEach(item => {
+                item.classList.remove("active-element");
+            });
+            placeholderControls.classList.remove("hidden");
+            mainControlsPanel.classList.add("hidden");
+            updateSelectionBox();
+        }
+
+        /* UPDATE PIECE ATTRIBUTES IN REALTIME FROM SLIDERS */
+        function updateSelectedElementTransform(attrs) {
+            if (!selectedElementId) return;
+            const el = activeElements.find(p => p.id === selectedElementId);
+            if (!el) return;
+
+            if (attrs.rotate !== undefined) el.rotate = attrs.rotate;
+            if (attrs.scale !== undefined) el.scale = attrs.scale;
+
+            const domEl = document.querySelector(`.piece-item[data-id="${selectedElementId}"]`);
+            if (domEl) {
+                domEl.style.transform = `translate(-50%, -50%) rotate(${el.rotate}deg) scale(${el.scale})`;
+            }
+            
+            // スライダー調整による目標角度へのフィットを検知
+            if (currentMode === "puzzle") {
+                const distToTarget = Math.hypot(el.x - el.targetX, el.y - el.targetY);
+                const rotDiff = Math.abs((el.rotate % 360) - (el.targetRotate % 360));
+                const rotSnap = rotDiff < 15 || rotDiff > 345;
+                const scaleDiff = Math.abs(el.scale - el.targetScale);
+
+                if (distToTarget < 3.5 && rotSnap && scaleDiff < 0.15) {
+                    el.x = el.targetX;
+                    el.y = el.targetY;
+                    el.rotate = el.targetRotate;
+                    el.scale = el.targetScale;
+                    sfx.playSnap();
+                    
+                    renderPieces();
+                    renderGhosts();
+                    
+                    const snappedDom = document.querySelector(`.piece-item[data-id="${selectedElementId}"]`);
+                    if (snappedDom) {
+                        snappedDom.classList.add("snap-anim");
+                        setTimeout(() => snappedDom.classList.remove("snap-anim"), 500);
+                    }
+                    
+                    deselectAll();
+                }
+            }
+
+            updateSelectionBox();
+            checkPuzzleStatus();
+        }
+
+        /* POSITION SELECTION BLUE BOX OVER SELECTED PIECE */
+        function updateSelectionBox() {
+            if (!selectedElementId) {
+                selectionBox.classList.add("hidden");
+                return;
+            }
+
+            const domEl = document.querySelector(`.piece-item[data-id="${selectedElementId}"]`);
+            const el = activeElements.find(p => p.id === selectedElementId);
+            if (!domEl || !el) {
+                selectionBox.classList.add("hidden");
+                return;
+            }
+
+            // Keep selection outline tightly matched to bounding dimensions
+            const rect = domEl.getBoundingClientRect();
+            const canvasRect = canvas.getBoundingClientRect();
+
+            selectionBox.style.left = `${rect.left - canvasRect.left}px`;
+            selectionBox.style.top = `${rect.top - canvasRect.top}px`;
+            selectionBox.style.width = `${rect.width}px`;
+            selectionBox.style.height = `${rect.height}px`;
+            selectionBox.classList.remove("hidden");
+        }
+
+        /* FINE TUNE USING KEYBOARD ARROWS */
+        function handleKeyboardFineTune(e) {
+            if (!selectedElementId) return;
+            const el = activeElements.find(p => p.id === selectedElementId);
+            if (!el) return;
+
+            let step = 1; // Translate movement steps (percentage)
+            let handled = false;
+
+            if (e.key === "ArrowUp") {
+                el.y = Math.max(-10, parseFloat((el.y - step).toFixed(1)));
+                handled = true;
+            } else if (e.key === "ArrowDown") {
+                el.y = Math.min(110, parseFloat((el.y + step).toFixed(1)));
+                handled = true;
+            } else if (e.key === "ArrowLeft") {
+                el.x = Math.max(-10, parseFloat((el.x - step).toFixed(1)));
+                handled = true;
+            } else if (e.key === "ArrowRight") {
+                el.x = Math.min(110, parseFloat((el.x + step).toFixed(1)));
+                handled = true;
+            }
+
+            if (handled) {
+                e.preventDefault();
+                
+                // キーボード微調整によるスナップチェック
+                if (currentMode === "puzzle") {
+                    const distToTarget = Math.hypot(el.x - el.targetX, el.y - el.targetY);
+                    const rotDiff = Math.abs((el.rotate % 360) - (el.targetRotate % 360));
+                    const rotSnap = rotDiff < 15 || rotDiff > 345;
+                    const scaleDiff = Math.abs(el.scale - el.targetScale);
+
+                    if (distToTarget < 3.5 && rotSnap && scaleDiff < 0.15) {
+                        el.x = el.targetX;
+                        el.y = el.targetY;
+                        el.rotate = el.targetRotate;
+                        el.scale = el.targetScale;
+                        sfx.playSnap();
+                        
+                        renderPieces();
+                        renderGhosts();
+                        
+                        const snappedDom = document.querySelector(`.piece-item[data-id="${selectedElementId}"]`);
+                        if (snappedDom) {
+                            snappedDom.classList.add("snap-anim");
+                            setTimeout(() => snappedDom.classList.remove("snap-anim"), 500);
+                        }
+                        
+                        deselectAll();
+                        return;
+                    }
+                }
+
+                // Update Piece position in DOM
+                const domEl = document.querySelector(`.piece-item[data-id="${selectedElementId}"]`);
+                if (domEl) {
+                    domEl.style.left = `${el.x}%`;
+                    domEl.style.top = `${el.y}%`;
+                }
+                updateSelectionBox();
+                checkPuzzleStatus();
+            }
+        }
+
+        /* CHECK SCORE/COMPLETION PROGRESS (PUZZLE MODE) */
+        function checkPuzzleStatus() {
+            if (currentMode !== "puzzle") return;
+
+            let totalMatches = 0;
+            const thresholdDistance = 4; // Accuracy threshold
+            const thresholdRotate = 15; // Degrees threshold
+            const thresholdScale = 0.15; // Scale difference accuracy threshold
+
+            activeElements.forEach(el => {
+                const dist = Math.hypot(el.x - el.targetX, el.y - el.targetY);
+                // Angle alignment validation handles wrapping at 360 bounds
+                const rotDiff = Math.abs((el.rotate % 360) - (el.targetRotate % 360));
+                const isRotMatched = rotDiff < thresholdRotate || rotDiff > (360 - thresholdRotate);
+                const scaleDiff = Math.abs(el.scale - el.targetScale);
+
+                if (dist < thresholdDistance && isRotMatched && scaleDiff < thresholdScale) {
+                    totalMatches++;
+                }
+            });
+
+            const matchPercent = Math.round((totalMatches / activeElements.length) * 100);
+            matchPercentSpan.innerText = matchPercent;
+
+            if (matchPercent === 100) {
+                triggerSuccessChime();
+            }
+        }
+
+        /* LEVEL CLEAR SUCCESS FANFARE WITH CONFETTI */
+        function triggerSuccessChime() {
+            // Only trigger if not already showing clear screens
+            if (!clearOverlay.classList.contains("opacity-100")) {
+                sfx.playFanfare();
+                deselectAll();
+                
+                // Show clear screen with nice animated splash scale scaling
+                clearOverlay.classList.remove("pointer-events-none");
+                clearOverlay.classList.add("opacity-100");
+                setTimeout(() => {
+                    clearCard.classList.remove("scale-90");
+                    clearCard.classList.add("scale-100");
+                }, 50);
+
+                // Start Confetti Stream particles
+                startConfettiEffect();
+            }
+        }
+
+        /* RE-TOGGLE OUTLINE GUIDE VISIBILITY */
+        function toggleGuides() {
+            showGuides = !showGuides;
+            const spanText = btnToggleOutline.querySelector("span");
+            const icon = btnToggleOutline.querySelector("i");
+            
+            if (showGuides) {
+                spanText.innerText = "ガイドを隠す";
+                icon.className = "fa-solid fa-eye-slash";
+                renderGhosts();
+            } else {
+                spanText.innerText = "ガイドを表示";
+                icon.className = "fa-solid fa-eye";
+                ghostLayer.innerHTML = "";
+            }
+            sfx.playGrab();
+        }
+
+        /* SWITCH TABS WITHIN FREE COLLAGE PALETTE PANEL */
+        function changeFreeTab(tab) {
+            activeTab = tab;
+            
+            // Toggle tab UI highlighted buttons styling
+            const tabs = document.querySelectorAll(".free-tab-btn");
+            tabs.forEach(btn => {
+                const isThis = btn.getAttribute("onclick").includes(`'${tab}'`);
+                if (isThis) {
+                    btn.className = "free-tab-btn py-1.5 px-2 text-xs rounded-lg font-semibold bg-indigo-600 text-white transition-all";
+                } else {
+                    btn.className = "free-tab-btn py-1.5 px-2 text-xs rounded-lg font-semibold bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 transition-all";
+                }
+            });
+
+            // Populate palette elements list
+            renderFreeItems();
+        }
+
+        /* POPULATE THE LIST OF FREE MODE ELEMENTS FOR USER CLICKS */
+        function renderFreeItems() {
+            const list = FREE_ASSETS[activeTab] || [];
+            
+            freeItemsContainer.innerHTML = list.map((item, idx) => {
+                let displayHTML = "";
+
+                if (activeTab === 'photos') {
+                    displayHTML = `
+                        <div class="p-1 pb-3 bg-white text-zinc-800 rounded shadow border flex flex-col items-center gap-1 w-full aspect-[4/5] overflow-hidden">
+                            <span class="text-2xl">${item.emoji}</span>
+                            <span class="text-[7px] font-bold text-zinc-500 scale-95">${item.caption}</span>
+                        </div>
+                    `;
+                } else if (activeTab === 'stamps') {
+                    displayHTML = `
+                        <div class="p-1 bg-rose-50 border-dashed border border-rose-900/30 text-rose-950 rounded flex flex-col items-center justify-center w-full aspect-square overflow-hidden">
+                            <span class="text-xl">${item.emoji}</span>
+                            <span class="text-[5px] scale-90 text-rose-900/40 uppercase font-black">STAMP</span>
+                        </div>
+                    `;
+                } else if (activeTab === 'decor') {
+                    displayHTML = `
+                        <div class="text-3xl p-1 text-center w-full">${item.emoji}</div>
+                    `;
+                } else { // Tapes
+                    displayHTML = `
+                        <div class="w-full h-8 ${item.color} border border-white/20 rounded-md"></div>
+                    `;
+                }
+
+                return `
+                    <button onclick="addFreePiece('${activeTab}', ${idx})" class="p-2 bg-zinc-950/40 hover:bg-zinc-800 border border-zinc-800/80 hover:border-zinc-700 rounded-xl flex items-center justify-center transition-all">
+                        ${displayHTML}
+                    </button>
+                `;
+            }).join("");
+        }
+
+        /* ADD USER CREATED ELEMENT IN FREE STYLE WORKSPACE */
+        function addFreePiece(category, index) {
+            const preset = FREE_ASSETS[category][index];
+            if (!preset) return;
+
+            const randomId = `free-${Date.now()}-${Math.floor(Math.random() * 100)}`;
+            const centerOffsetRandX = 15 + Math.random() * 15; // Place roughly centered offset
+            const centerOffsetRandY = 15 + Math.random() * 15;
+
+            let newElement = {
+                id: randomId,
+                type: category === 'photos' ? 'polaroid' : category === 'stamps' ? 'stamp' : category === 'decor' ? 'sticker' : 'tape',
+                emoji: preset.emoji || "",
+                caption: preset.caption || "",
+                scale: 1.0,
+                rotate: 0,
+                x: 35 + centerOffsetRandX,
+                y: 35 + centerOffsetRandY,
+                zIndex: activeElements.length + 1,
+                flipped: false,
+                color: preset.color || ""
+            };
+
+            activeElements.push(newElement);
+            renderPieces();
+            selectElement(randomId);
+            sfx.playSnap();
+        }
+
+        /* CONFETTI SYSTEM LOGIC FOR CELEBRATIONS */
+        let confettiInterval = null;
+        let confettiParticles = [];
+        const confettiColors = ['#f59e0b', '#ec4899', '#6366f1', '#10b981', '#3b82f6'];
+
+        function startConfettiEffect() {
+            confettiCanvas.classList.remove("hidden");
+            const ctx = confettiCanvas.getContext("2d");
+            
+            // Resize canvas to cover container
+            const resizeCanvas = () => {
+                confettiCanvas.width = confettiCanvas.parentElement.clientWidth;
+                confettiCanvas.height = confettiCanvas.parentElement.clientHeight;
+            };
+            resizeCanvas();
+            window.addEventListener("resize", resizeCanvas);
+
+            // Populate initial particle array
+            confettiParticles = [];
+            for (let i = 0; i < 70; i++) {
+                confettiParticles.push({
+                    x: Math.random() * confettiCanvas.width,
+                    y: Math.random() * confettiCanvas.height - confettiCanvas.height,
+                    size: Math.random() * 6 + 4,
+                    color: confettiColors[Math.floor(Math.random() * confettiColors.length)],
+                    speedY: Math.random() * 3 + 2,
+                    speedX: Math.random() * 2 - 1,
+                    angle: Math.random() * 360,
+                    rotationSpeed: Math.random() * 4 - 2
+                });
+            }
+
+            if (confettiInterval) clearInterval(confettiInterval);
+            
+            const animateConfetti = () => {
+                ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+                
+                let particlesActive = false;
+                
+                confettiParticles.forEach(p => {
+                    p.y += p.speedY;
+                    p.x += p.speedX;
+                    p.angle += p.rotationSpeed;
+
+                    // Recycle out of bound particles if the banner screen is open
+                    if (p.y > confettiCanvas.height) {
+                        if (!clearOverlay.classList.contains("opacity-0")) {
+                            p.y = -20;
+                            p.x = Math.random() * confettiCanvas.width;
+                        }
+                    }
+
+                    if (p.y < confettiCanvas.height) {
+                        particlesActive = true;
+                    }
+
+                    ctx.save();
+                    ctx.translate(p.x, p.y);
+                    ctx.rotate((p.angle * Math.PI) / 180);
+                    ctx.fillStyle = p.color;
+                    ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+                    ctx.restore();
+                });
+
+                if (particlesActive && !clearOverlay.classList.contains("opacity-0")) {
+                    requestAnimationFrame(animateConfetti);
+                } else {
+                    confettiCanvas.classList.add("hidden");
+                }
+            };
+
+            animateConfetti();
+        }
+    </script>
+</body>
+</html>
